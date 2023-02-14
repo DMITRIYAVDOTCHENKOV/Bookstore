@@ -3,6 +3,9 @@ package org.example;
 import org.example.model.*;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Stack;
 
 public class Main {
 
@@ -13,10 +16,182 @@ public class Main {
 
     public static void main(String[] args) {
         initData();
-        String booksInfo = String.format("Общее кол-во проданных книг %d на сумму %f",getCountOfSoldBooks(),
+        String booksInfo = String.format("Общее кол-во проданных книг %d на сумму %f", getCountOfSoldBooks(),
                 getAllPriceOfSoldBooks());
         System.out.println(booksInfo);
 
+        for (Employee employee : employees) {
+            System.out.println(employee.getName() + " продал(а) " + getProfitByEmployee(employee.getId()).toString());
+        }
+        ArrayList<BookAdditional> soldBooksCount = getCountOfSoldBooksByGenre();//кол-во книг
+        HashMap<BookCenre, Double> soldBookPrice = getPriceOfSoldBooksByGenre();//кол-во жанров
+
+        String soldBookSrt = "По жанру: %s продано %d книг(и) общей стоимостью %f";
+
+        //
+        for (BookAdditional bookAdditional : soldBooksCount) {
+            double price = soldBookPrice.get(bookAdditional.getGenre());
+            System.out.printf((soldBookSrt) + "%n", bookAdditional.getGenre().name(), bookAdditional.getCount(),
+                    price);
+        }
+        int age = 30;
+        String analyzeGenreSrt = "Покупатели младше %d лет выбирают жанр %s";
+        System.out.printf((analyzeGenreSrt) + "%n",30,getMostPopularGenrelessTheAge(30));
+
+
+        String analyzeGenreSrt2 = "Покупатели старше %d лет выбирают жанр %s";
+        System.out.printf((analyzeGenreSrt2) + "%n",30,getMostPopularGenreMoreTheAge(30));
+
+    }
+
+    /**
+     * Получить наиболее популярный жанр для заказчиков младше возраста #age
+     *
+     * @param age требуемый возраст
+     * @return популярный жанр
+     */
+    public static BookCenre getMostPopularGenrelessTheAge(int age) {
+        ArrayList<Long> customersIds = new ArrayList<Long>();
+
+        for (Customer customer : customers) {
+            if (customer.getAge() < age) {
+                customersIds.add(customer.getId());
+            }
+        }
+        return getMostPopularBookGenre(customersIds);
+    }
+
+    /**
+     * Получить наименее популярный жанр для заказчиков старше возраста #age
+     *
+     * @param age требуемый возраст
+     * @return популярный жанр
+     */
+    public static BookCenre getMostPopularGenreMoreTheAge(int age) {
+        ArrayList<Long> customersIds = new ArrayList<Long>();
+
+        for (Customer customer : customers) {
+            if (customer.getAge() > age) {
+                customersIds.add(customer.getId());
+            }
+        }
+        return getMostPopularBookGenre(customersIds);
+    }
+
+    private static BookCenre getMostPopularBookGenre(ArrayList<Long> customersIds) {
+        int countArt = 0, countPr = 0, countPs = 0;
+
+        for (Order order : orders) {
+            if (customersIds.contains(order.getCustomerId())) {
+                countArt += getCountOfSoldBooksByGenre(order, BookCenre.Art);
+                countPr += getCountOfSoldBooksByGenre(order, BookCenre.Programming);
+                countPs += getCountOfSoldBooksByGenre(order, BookCenre.Psychology);
+            }
+        }
+        ArrayList<BookAdditional> result = new ArrayList<>();
+        result.add(new BookAdditional(BookCenre.Art, countArt));
+        result.add(new BookAdditional(BookCenre.Programming, countPr));
+        result.add(new BookAdditional(BookCenre.Psychology, countPs));
+        result.sort(new Comparator<BookAdditional>() {
+            @Override
+            public int compare(BookAdditional left, BookAdditional right) {
+                return right.getCount() - left.getCount();
+            }
+        });
+        return result.get(0).getGenre();
+    }
+
+    public static ArrayList<BookAdditional> getCountOfSoldBooksByGenre() {
+        ArrayList<BookAdditional> result = new ArrayList<>();
+        int countArt = 0, countPr = 0, countPs = 0;
+        for (Order order : orders) {
+            countArt += getCountOfSoldBooksByGenre(order, BookCenre.Art);
+            countPr += getCountOfSoldBooksByGenre(order, BookCenre.Programming);
+            countPs += getCountOfSoldBooksByGenre(order, BookCenre.Psychology);
+        }
+        result.add(new BookAdditional(BookCenre.Art, countArt));
+        result.add(new BookAdditional(BookCenre.Programming, countPr));
+        result.add(new BookAdditional(BookCenre.Psychology, countPs));
+
+        return result;
+    }
+
+    /**
+     * Получить кол-во книг в одном заказе по определенному жанру
+     *
+     * @param order заказ
+     * @param genre жанр
+     * @return кол-во книг
+     */
+    public static int getCountOfSoldBooksByGenre(Order order, BookCenre genre) {
+        int count = 0;
+
+        for (long bookId : order.getBooks()) {
+            Book book = getBookById(bookId);
+            if (book != null && book.getGenre() == genre) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+
+    /**
+     * Получаем стоимость проданных книг по жанру
+     *
+     * @return
+     */
+    public static HashMap<BookCenre, Double> getPriceOfSoldBooksByGenre() {
+        HashMap<BookCenre, Double> result = new HashMap<>();
+        double priceArt = 0, pricePr = 0, pricePs = 0;
+
+        for (Order order : orders) {
+            priceArt += getPriceOfSoldBooksByGenre(order, BookCenre.Art);
+            pricePr += getPriceOfSoldBooksByGenre(order, BookCenre.Programming);
+            pricePs += getPriceOfSoldBooksByGenre(order, BookCenre.Psychology);
+        }
+        result.put(BookCenre.Art, priceArt);
+        result.put(BookCenre.Programming, pricePr);
+        result.put(BookCenre.Psychology, pricePs);
+        return result;
+    }
+
+    /**
+     * Получить общую сумму книг в одном заказе по определенному жанру
+     *
+     * @param order заказ
+     * @param genre жанр
+     * @return общая стоимость
+     */
+    public static double getPriceOfSoldBooksByGenre(Order order, BookCenre genre) {
+        double price = 0;
+
+        for (long bookId : order.getBooks()) {
+            Book book = getBookById(bookId);
+            if (book != null && book.getGenre() == genre) {
+                price += book.getPrice();
+            }
+        }
+        return price;
+    }
+
+
+    /**
+     * Получить общее код-во и общую стоимость товара для продовца
+     *
+     * @param employeeId уникальный номер продавца
+     * @return кол-во и общую стоимость указанного продавцы
+     */
+    public static Profit getProfitByEmployee(long employeeId) {
+        int count = 0;
+        double price = 0;
+        for (Order order : orders) {
+            if (order.getEmployeeId() == employeeId) {
+                price += getPriceOfSoldBooksInOrder(order);
+                count += order.getBooks().length;
+            }
+        }
+        return new Profit(count, price);
     }
 
     /**
